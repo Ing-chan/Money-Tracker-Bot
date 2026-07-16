@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "Budget Tracker",
-    "slug": "budget-tracker",
+    "name": "Budget & Expenses Tracker",
+    "slug": "budgetexpensestracker",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon_2.png",
-    "scheme": "budget-tracker",
+    "scheme": "budgetexpensestracker",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "splash": {
@@ -14,10 +14,11 @@
       "backgroundColor": "#0A0F1E"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.budgetexpensestracker.app"
     },
     "android": {
-      "package": "com.replit.budgettracker"
+      "package": "com.budgetexpensestracker.app"
     },
     "web": {
       "favicon": "./assets/images/icon_2.png"
