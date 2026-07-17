@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { extractAmountWithCurrency } from './amountExtractor';
 
 export const TRANSACTIONS_KEY = '@budget_transactions';
+export const PENDING_TRANSACTIONS_KEY = '@budget_pending_transactions';
 export const BANKING_APPS_KEY = '@budget_banking_apps';
 export const BUDGET_KEY = '@budget_monthly';
 export const CURRENCY_KEY = '@budget_currency'; // stores a currency code string, e.g. 'EUR'
@@ -87,8 +88,12 @@ export async function handleNotification(notification: Record<string, string>): 
       source: 'notification',
     };
 
-    transactions.unshift(newTx);
-    await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(transactions));
+    // Write to the pending queue instead of the confirmed transaction list.
+    // On next app open the user can review, approve, or reject these entries.
+    const pendingJson = await AsyncStorage.getItem(PENDING_TRANSACTIONS_KEY);
+    const pending: Transaction[] = pendingJson ? JSON.parse(pendingJson) : [];
+    pending.unshift(newTx);
+    await AsyncStorage.setItem(PENDING_TRANSACTIONS_KEY, JSON.stringify(pending));
   } catch {
     // Silently fail — do not crash the headless task
   }

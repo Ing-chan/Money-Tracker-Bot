@@ -19,6 +19,10 @@ import { ExchangeRateModal } from '@/components/ExchangeRateModal';
 import { getCurrencyByCode } from '@/utils/currencies';
 
 const BANKING_PRESETS = [
+  // ── Italian / European ──────────────────────────────────────────────────
+  { displayName: 'Intesa Sanpaolo', packageName: 'com.latuabancaperandroid' },
+  { displayName: 'Trade Republic', packageName: 'de.traderepublic.app' },
+  // ── US banks & wallets ──────────────────────────────────────────────────
   { displayName: 'Chase', packageName: 'com.chase.sig.android' },
   { displayName: 'Bank of America', packageName: 'com.infonow.bofa' },
   { displayName: 'Wells Fargo', packageName: 'com.wf.wellsfargomobile' },

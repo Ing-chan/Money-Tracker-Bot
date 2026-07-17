@@ -15,6 +15,7 @@ import {
   BankingApp,
   BUDGET_KEY,
   CURRENCY_KEY,
+  PENDING_TRANSACTIONS_KEY,
   Transaction,
   TRANSACTIONS_KEY,
   handleNotification,
@@ -56,6 +57,16 @@ interface BudgetContextType {
   clearAllData: () => Promise<void>;
   currentMonthTotal: number;
   currentMonthTransactions: Transaction[];
+  /** Notification transactions waiting for user review (≥3 triggers the modal on open). */
+  pendingTransactions: Transaction[];
+  /** Whether the full-screen pending review modal should be visible. */
+  pendingReviewVisible: boolean;
+  approvePendingTransaction: (id: string, overrides?: { amount?: number; description?: string }) => Promise<void>;
+  rejectPendingTransaction: (id: string) => Promise<void>;
+  approveAllPending: () => Promise<void>;
+  rejectAllPending: () => Promise<void>;
+  /** Hide the modal without acting on remaining pending items (deferred review). */
+  dismissPendingReview: () => void;
 }
 
 const BudgetContext = createContext<BudgetContextType | null>(null);
@@ -85,6 +96,10 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const [currency, setCurrencyState] = useState<Currency>(DEFAULT_CURRENCY);
   const appStateRef = useRef(AppState.currentState);
 
+  // ── Pending transaction review ─────────────────────────────────────────────
+  const [pendingTransactions, setPendingTransactions] = useState<Transaction[]>([]);
+  const [pendingReviewVisible, setPendingReviewVisible] = useState(false);
+
   const loadAll = useCallback(async () => {
     try {
       const [txJson, appsJson, budgetJson, currencyJson] = await Promise.all([
@@ -104,6 +119,34 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  /**
+   * Check the pending queue and either surface the review modal (≥3 entries on
+   * app launch) or silently auto-approve (<3 entries, or app was in foreground).
+   * @param isLaunch  true when called on cold start / background→foreground
+   *                  transition; false when called from the foreground poller.
+   */
+  const processPending = useCallback(async (isLaunch: boolean) => {
+    try {
+      const pendingJson = await AsyncStorage.getItem(PENDING_TRANSACTIONS_KEY);
+      const pending: Transaction[] = pendingJson ? JSON.parse(pendingJson) : [];
+      if (pending.length === 0) return;
+
+      if (isLaunch && pending.length >= 3) {
+        // Show the review modal — user decides per-transaction
+        setPendingTransactions(pending);
+        setPendingReviewVisible(true);
+      } else {
+        // Silently approve: fewer than 3, or app was already active
+        const txJson = await AsyncStorage.getItem(TRANSACTIONS_KEY);
+        const stored: Transaction[] = txJson ? JSON.parse(txJson) : [];
+        const combined = [...pending, ...stored];
+        await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(combined));
+        await AsyncStorage.removeItem(PENDING_TRANSACTIONS_KEY);
+        setTransactions(combined);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
   const checkPermission = useCallback(async () => {
     const mod = getNotificationModule();
     if (!mod) {
@@ -119,21 +162,28 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    loadAll();
+    const init = async () => {
+      await loadAll();
+      // After initial data load, surface the review modal if ≥3 pending entries
+      await processPending(true);
+    };
+    init();
     checkPermission();
-  }, [loadAll, checkPermission]);
+  }, [loadAll, checkPermission, processPending]);
 
-  // Re-check when app comes to foreground (user may have just granted access)
+  // Re-check when app returns to foreground (user may have just granted access,
+  // or new notifications may have arrived while backgrounded).
   useEffect(() => {
     const sub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
       if (appStateRef.current !== 'active' && nextState === 'active') {
         loadAll();
         checkPermission();
+        processPending(true); // surface modal if ≥3 arrived while backgrounded
       }
       appStateRef.current = nextState;
     });
     return () => sub.remove();
-  }, [loadAll, checkPermission]);
+  }, [loadAll, checkPermission, processPending]);
 
   // ── Foreground transaction sync ───────────────────────────────────────────
   // The Android notification listener service fires a HeadlessJsTask (configured
@@ -150,6 +200,22 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
 
     const poll = async () => {
       try {
+        // When a headless task fires while the app is active it writes to the
+        // pending queue. Auto-approve these immediately — the user is right here.
+        const pendingJson = await AsyncStorage.getItem(PENDING_TRANSACTIONS_KEY);
+        const pending: Transaction[] = pendingJson ? JSON.parse(pendingJson) : [];
+        if (pending.length > 0) {
+          const txJson = await AsyncStorage.getItem(TRANSACTIONS_KEY);
+          const stored: Transaction[] = txJson ? JSON.parse(txJson) : [];
+          const combined = [...pending, ...stored];
+          await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(combined));
+          await AsyncStorage.removeItem(PENDING_TRANSACTIONS_KEY);
+          setTransactions(combined);
+          lastKnownCount = combined.length;
+          return;
+        }
+
+        // Detect regular transaction-list changes (e.g. another process wrote them)
         const txJson = await AsyncStorage.getItem(TRANSACTIONS_KEY);
         const stored: Transaction[] = txJson ? JSON.parse(txJson) : [];
         if (lastKnownCount === -1) {
@@ -272,6 +338,89 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     [transactions]
   );
 
+  // ── Pending review actions ─────────────────────────────────────────────────
+
+  const approvePendingTransaction = useCallback(async (
+    id: string,
+    overrides?: { amount?: number; description?: string },
+  ) => {
+    try {
+      const pendingJson = await AsyncStorage.getItem(PENDING_TRANSACTIONS_KEY);
+      const pending: Transaction[] = pendingJson ? JSON.parse(pendingJson) : [];
+      const tx = pending.find(t => t.id === id);
+      if (!tx) return;
+
+      // Apply any user-supplied edits made in the review modal before saving
+      const finalTx: Transaction = overrides ? {
+        ...tx,
+        ...(overrides.amount != null && !isNaN(overrides.amount) ? { amount: overrides.amount } : {}),
+        ...(overrides.description?.trim() ? { description: overrides.description.trim() } : {}),
+      } : tx;
+
+      const remaining = pending.filter(t => t.id !== id);
+      const txJson = await AsyncStorage.getItem(TRANSACTIONS_KEY);
+      const stored: Transaction[] = txJson ? JSON.parse(txJson) : [];
+      const updated = [finalTx, ...stored];
+
+      await Promise.all([
+        AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(updated)),
+        remaining.length === 0
+          ? AsyncStorage.removeItem(PENDING_TRANSACTIONS_KEY)
+          : AsyncStorage.setItem(PENDING_TRANSACTIONS_KEY, JSON.stringify(remaining)),
+      ]);
+
+      setTransactions(updated);
+      setPendingTransactions(remaining);
+      if (remaining.length === 0) setPendingReviewVisible(false);
+    } catch { /* ignore */ }
+  }, []);
+
+  const rejectPendingTransaction = useCallback(async (id: string) => {
+    try {
+      const pendingJson = await AsyncStorage.getItem(PENDING_TRANSACTIONS_KEY);
+      const pending: Transaction[] = pendingJson ? JSON.parse(pendingJson) : [];
+      const remaining = pending.filter(t => t.id !== id);
+
+      if (remaining.length === 0) {
+        await AsyncStorage.removeItem(PENDING_TRANSACTIONS_KEY);
+        setPendingReviewVisible(false);
+      } else {
+        await AsyncStorage.setItem(PENDING_TRANSACTIONS_KEY, JSON.stringify(remaining));
+      }
+      setPendingTransactions(remaining);
+    } catch { /* ignore */ }
+  }, []);
+
+  const approveAllPending = useCallback(async () => {
+    try {
+      const pendingJson = await AsyncStorage.getItem(PENDING_TRANSACTIONS_KEY);
+      const pending: Transaction[] = pendingJson ? JSON.parse(pendingJson) : [];
+      if (pending.length === 0) { setPendingReviewVisible(false); return; }
+
+      const txJson = await AsyncStorage.getItem(TRANSACTIONS_KEY);
+      const stored: Transaction[] = txJson ? JSON.parse(txJson) : [];
+      const combined = [...pending, ...stored];
+
+      await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(combined));
+      await AsyncStorage.removeItem(PENDING_TRANSACTIONS_KEY);
+      setTransactions(combined);
+      setPendingTransactions([]);
+      setPendingReviewVisible(false);
+    } catch { /* ignore */ }
+  }, []);
+
+  const rejectAllPending = useCallback(async () => {
+    try {
+      await AsyncStorage.removeItem(PENDING_TRANSACTIONS_KEY);
+      setPendingTransactions([]);
+      setPendingReviewVisible(false);
+    } catch { /* ignore */ }
+  }, []);
+
+  const dismissPendingReview = useCallback(() => {
+    setPendingReviewVisible(false);
+  }, []);
+
   const addBankingApp = useCallback(
     async (packageName: string, displayName: string) => {
       if (bankingApps.some(b => b.packageName === packageName)) return;
@@ -367,6 +516,13 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       clearAllData,
       currentMonthTotal,
       currentMonthTransactions,
+      pendingTransactions,
+      pendingReviewVisible,
+      approvePendingTransaction,
+      rejectPendingTransaction,
+      approveAllPending,
+      rejectAllPending,
+      dismissPendingReview,
     }),
     [
       transactions,
@@ -389,6 +545,13 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       clearAllData,
       currentMonthTotal,
       currentMonthTransactions,
+      pendingTransactions,
+      pendingReviewVisible,
+      approvePendingTransaction,
+      rejectPendingTransaction,
+      approveAllPending,
+      rejectAllPending,
+      dismissPendingReview,
     ]
   );
 

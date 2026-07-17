@@ -15,6 +15,7 @@ import {
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { BudgetProvider } from '@/context/BudgetContext';
+import { PendingReviewModal } from '@/components/PendingReviewModal';
 import { handleNotification } from '@/utils/notificationHandler';
 
 // Register Android notification listener headless task at module-load time.
@@ -71,6 +72,7 @@ export default function RootLayout() {
             <KeyboardProvider>
               <BudgetProvider>
                 <RootLayoutNav />
+                <PendingReviewModal />
               </BudgetProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
