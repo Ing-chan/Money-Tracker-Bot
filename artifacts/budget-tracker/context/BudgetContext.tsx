@@ -14,9 +14,12 @@ import {
   BANKING_APPS_KEY,
   BankingApp,
   BUDGET_KEY,
+  CURRENCY_KEY,
   Transaction,
   TRANSACTIONS_KEY,
+  handleNotification,
 } from '@/utils/notificationHandler';
+import { Currency, DEFAULT_CURRENCY, formatAmount, getCurrencyByCode } from '@/utils/currencies';
 
 type PermissionStatus = 'authorized' | 'denied' | 'unknown';
 
@@ -26,11 +29,21 @@ interface BudgetContextType {
   monthlyBudget: number;
   permissionStatus: PermissionStatus;
   isLoading: boolean;
+  /** The active global currency (used for display + new transactions). */
+  currency: Currency;
+  /** Change the global currency. If a rate is provided, all existing transaction amounts are multiplied by it. */
+  setGlobalCurrency: (code: string, rate?: number) => Promise<void>;
+  /** Format a number using the global currency (or an override currency code). */
+  formatMoney: (amount: number, overrideCurrencyCode?: string) => string;
   addTransaction: (
     amount: number,
     description: string,
     source: 'notification' | 'manual',
-    appName?: string
+    appName?: string,
+    /** Pre-conversion amount displayed to user (manual foreign-currency entries only). */
+    originalAmount?: number,
+    /** Currency code of originalAmount (manual foreign-currency entries only). */
+    originalCurrency?: string,
   ) => Promise<void>;
   removeTransaction: (id: string) => Promise<void>;
   addBankingApp: (packageName: string, displayName: string) => Promise<void>;
@@ -69,18 +82,21 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const [monthlyBudget, setMonthlyBudgetState] = useState<number>(2000);
   const [permissionStatus, setPermissionStatus] = useState<PermissionStatus>('unknown');
   const [isLoading, setIsLoading] = useState(true);
+  const [currency, setCurrencyState] = useState<Currency>(DEFAULT_CURRENCY);
   const appStateRef = useRef(AppState.currentState);
 
   const loadAll = useCallback(async () => {
     try {
-      const [txJson, appsJson, budgetJson] = await Promise.all([
+      const [txJson, appsJson, budgetJson, currencyJson] = await Promise.all([
         AsyncStorage.getItem(TRANSACTIONS_KEY),
         AsyncStorage.getItem(BANKING_APPS_KEY),
         AsyncStorage.getItem(BUDGET_KEY),
+        AsyncStorage.getItem(CURRENCY_KEY),
       ]);
       if (txJson) setTransactions(JSON.parse(txJson));
       if (appsJson) setBankingApps(JSON.parse(appsJson));
       if (budgetJson) setMonthlyBudgetState(JSON.parse(budgetJson));
+      if (currencyJson) setCurrencyState(getCurrencyByCode(JSON.parse(currencyJson)));
     } catch {
       // ignore
     } finally {
@@ -119,16 +135,122 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     return () => sub.remove();
   }, [loadAll, checkPermission]);
 
+  // ── Foreground transaction sync ───────────────────────────────────────────
+  // The Android notification listener service fires a HeadlessJsTask (configured
+  // with allowedInForeground=true) that writes new transactions to AsyncStorage.
+  // The library exposes no event-emitter surface, so we poll AsyncStorage at a
+  // short interval while the app is in the foreground to pick up new entries.
+  // The interval is intentionally short enough to feel real-time but long enough
+  // not to hammer the storage layer.
+  useEffect(() => {
+    if (Platform.OS !== 'android') return;
+
+    let pollId: ReturnType<typeof setInterval> | null = null;
+    let lastKnownCount = -1; // -1 = uninitialised, skip first comparison
+
+    const poll = async () => {
+      try {
+        const txJson = await AsyncStorage.getItem(TRANSACTIONS_KEY);
+        const stored: Transaction[] = txJson ? JSON.parse(txJson) : [];
+        if (lastKnownCount === -1) {
+          lastKnownCount = stored.length;
+          return;
+        }
+        if (stored.length !== lastKnownCount) {
+          lastKnownCount = stored.length;
+          setTransactions(stored);
+        }
+      } catch {
+        // Ignore storage errors — the next poll will retry
+      }
+    };
+
+    const start = () => {
+      if (pollId != null) return;
+      lastKnownCount = -1; // reset so first tick seeds the baseline
+      pollId = setInterval(poll, 4000); // check every 4 seconds
+    };
+
+    const stop = () => {
+      if (pollId != null) {
+        clearInterval(pollId);
+        pollId = null;
+      }
+    };
+
+    // Start polling immediately if app is already active
+    if (AppState.currentState === 'active') start();
+
+    const sub = AppState.addEventListener('change', state => {
+      if (state === 'active') start();
+      else stop();
+    });
+
+    return () => {
+      sub.remove();
+      stop();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Currency ──────────────────────────────────────────────────────────────
+
+  const setGlobalCurrency = useCallback(
+    async (code: string, rate?: number) => {
+      const newCurrency = getCurrencyByCode(code);
+
+      // If a conversion rate is given, multiply all existing transaction amounts
+      let updatedTransactions = transactions;
+      if (rate && rate > 0 && transactions.length > 0) {
+        updatedTransactions = transactions.map(tx => {
+          // Only convert transactions whose amount is in the current global currency
+          // (i.e. those without detectedCurrency). Foreign-detected ones stay as-is.
+          if (tx.detectedCurrency) return tx;
+          return {
+            ...tx,
+            amount: Math.round(tx.amount * rate * 100) / 100,
+            // originalAmount/originalCurrency are display-only and stay unchanged
+          };
+        });
+        setTransactions(updatedTransactions);
+        await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(updatedTransactions));
+
+        // Also convert monthly budget
+        const newBudget = Math.round(monthlyBudget * rate * 100) / 100;
+        setMonthlyBudgetState(newBudget);
+        await AsyncStorage.setItem(BUDGET_KEY, JSON.stringify(newBudget));
+      }
+
+      setCurrencyState(newCurrency);
+      await AsyncStorage.setItem(CURRENCY_KEY, JSON.stringify(code));
+    },
+    [transactions, monthlyBudget]
+  );
+
+  const formatMoney = useCallback(
+    (amount: number, overrideCurrencyCode?: string) => {
+      const cur = overrideCurrencyCode ? getCurrencyByCode(overrideCurrencyCode) : currency;
+      return formatAmount(amount, cur);
+    },
+    [currency]
+  );
+
+  // ── Transactions ──────────────────────────────────────────────────────────
+
   const addTransaction = useCallback(
     async (
       amount: number,
       description: string,
       source: 'notification' | 'manual',
-      appName = 'manual'
+      appName = 'manual',
+      originalAmount?: number,
+      originalCurrency?: string,
     ) => {
       const tx: Transaction = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+        // amount is always in the global currency (already converted by caller if needed)
         amount,
+        originalAmount,
+        originalCurrency,
         description: description.trim() || 'Transaction',
         appName,
         date: new Date().toISOString(),
@@ -211,8 +333,15 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     [transactions]
   );
 
+  // Only sum transactions whose amount is in the global currency.
+  // Notification-detected transactions in a foreign currency (detectedCurrency set) are
+  // excluded because we have no exchange rate to convert them — the amount is in an
+  // unknown unit relative to the user's budget.
   const currentMonthTotal = useMemo(
-    () => currentMonthTransactions.reduce((sum, t) => sum + t.amount, 0),
+    () =>
+      currentMonthTransactions
+        .filter(t => !t.detectedCurrency)
+        .reduce((sum, t) => sum + t.amount, 0),
     [currentMonthTransactions]
   );
 
@@ -223,6 +352,9 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       monthlyBudget,
       permissionStatus,
       isLoading,
+      currency,
+      setGlobalCurrency,
+      formatMoney,
       addTransaction,
       removeTransaction,
       addBankingApp,
@@ -242,6 +374,9 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       monthlyBudget,
       permissionStatus,
       isLoading,
+      currency,
+      setGlobalCurrency,
+      formatMoney,
       addTransaction,
       removeTransaction,
       addBankingApp,

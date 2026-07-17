@@ -14,6 +14,9 @@ import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useColors } from '@/hooks/useColors';
 import { useBudget } from '@/context/BudgetContext';
+import { CurrencyPickerModal } from '@/components/CurrencyPickerModal';
+import { ExchangeRateModal } from '@/components/ExchangeRateModal';
+import { getCurrencyByCode } from '@/utils/currencies';
 
 const BANKING_PRESETS = [
   { displayName: 'Chase', packageName: 'com.chase.sig.android' },
@@ -61,6 +64,8 @@ export default function SettingsScreen() {
     monthlyBudget,
     permissionStatus,
     transactions,
+    currency,
+    setGlobalCurrency,
     addBankingApp,
     removeBankingApp,
     setMonthlyBudget,
@@ -73,6 +78,11 @@ export default function SettingsScreen() {
   const [customName, setCustomName] = useState('');
   const [budgetInput, setBudgetInput] = useState(monthlyBudget.toString());
   const [budgetEditing, setBudgetEditing] = useState(false);
+
+  // Currency flow
+  const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false);
+  const [rateModalVisible, setRateModalVisible] = useState(false);
+  const [pendingCurrencyCode, setPendingCurrencyCode] = useState('');
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -102,7 +112,7 @@ export default function SettingsScreen() {
   };
 
   const handleSaveBudget = async () => {
-    const parsed = parseFloat(budgetInput.replace(/[$,]/g, ''));
+    const parsed = parseFloat(budgetInput.replace(/[^\d.]/g, ''));
     if (!isNaN(parsed) && parsed >= 0) {
       await setMonthlyBudget(parsed);
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -127,6 +137,26 @@ export default function SettingsScreen() {
       ]
     );
   };
+
+  // Currency picker handlers
+  const handleCurrencySelect = (code: string) => {
+    if (code === currency.code) return;
+    setPendingCurrencyCode(code);
+    if (transactions.length > 0) {
+      setRateModalVisible(true);
+    } else {
+      setGlobalCurrency(code);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const handleRateConfirm = async (rate: number) => {
+    setRateModalVisible(false);
+    await setGlobalCurrency(pendingCurrencyCode, rate);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const pendingCurrency = pendingCurrencyCode ? getCurrencyByCode(pendingCurrencyCode) : currency;
 
   const permissionColor =
     permissionStatus === 'authorized'
@@ -168,6 +198,41 @@ export default function SettingsScreen() {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ padding: 16, paddingBottom: bottomPad + 20, gap: 12 }}
       >
+        {/* ── Currency ── */}
+        <SectionCard>
+          <SectionHeader icon="globe" title="Currency" />
+          <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+            Tap to change your default currency. If you have existing transactions, you'll be asked
+            for the current exchange rate and all amounts will be converted.
+          </Text>
+          <Pressable
+            style={({ pressed }) => [
+              styles.currencyRow,
+              {
+                backgroundColor: colors.muted,
+                borderRadius: colors.radius,
+                opacity: pressed ? 0.75 : 1,
+              },
+            ]}
+            onPress={() => setCurrencyPickerVisible(true)}
+          >
+            <View style={styles.currencyLeft}>
+              <Text style={[styles.currencySymbolLarge, { color: colors.primary }]}>
+                {currency.symbol}
+              </Text>
+              <View>
+                <Text style={[styles.currencyName, { color: colors.foreground }]}>
+                  {currency.name}
+                </Text>
+                <Text style={[styles.currencyCode, { color: colors.mutedForeground }]}>
+                  {currency.code}
+                </Text>
+              </View>
+            </View>
+            <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+          </Pressable>
+        </SectionCard>
+
         {/* ── Notification Access ── */}
         <SectionCard>
           <SectionHeader icon="bell" title="Notification Access" />
@@ -193,13 +258,6 @@ export default function SettingsScreen() {
             On Android: Settings → Apps → Special app access → Notification access → enable{' '}
             <Text style={{ fontFamily: 'Inter_500Medium' }}>Budget Tracker</Text>
           </Text>
-          <View style={[styles.infoBanner, { backgroundColor: colors.muted, borderRadius: colors.radius }]}>
-            <Feather name="info" size={13} color={colors.mutedForeground} />
-            <Text style={[styles.infoText, { color: colors.mutedForeground }]}>
-              Notification reading requires a native Android build. The preview runs in a web/Expo Go
-              environment where this permission is unavailable — all other features work normally.
-            </Text>
-          </View>
         </SectionCard>
 
         {/* ── Banking Apps ── */}
@@ -312,7 +370,7 @@ export default function SettingsScreen() {
           {budgetEditing ? (
             <View style={styles.budgetEdit}>
               <View style={[styles.budgetInput, { backgroundColor: colors.input, borderColor: colors.border, borderRadius: colors.radius }]}>
-                <Text style={[styles.dollar, { color: colors.primary }]}>$</Text>
+                <Text style={[styles.dollar, { color: colors.primary }]}>{currency.symbol}</Text>
                 <TextInput
                   value={budgetInput}
                   onChangeText={setBudgetInput}
@@ -344,7 +402,7 @@ export default function SettingsScreen() {
               onPress={() => { setBudgetEditing(true); setBudgetInput(monthlyBudget.toString()); }}
             >
               <Text style={[styles.budgetValue, { color: colors.foreground }]}>
-                ${monthlyBudget.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                {currency.symbol}{monthlyBudget.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                 <Text style={[styles.budgetSub, { color: colors.mutedForeground }]}> / month</Text>
               </Text>
               <Feather name="edit-2" size={14} color={colors.mutedForeground} />
@@ -398,6 +456,25 @@ export default function SettingsScreen() {
           </Pressable>
         </SectionCard>
       </ScrollView>
+
+      {/* Currency picker modal */}
+      <CurrencyPickerModal
+        visible={currencyPickerVisible}
+        selected={currency.code}
+        onSelect={handleCurrencySelect}
+        onClose={() => setCurrencyPickerVisible(false)}
+      />
+
+      {/* Exchange rate modal */}
+      <ExchangeRateModal
+        visible={rateModalVisible}
+        fromCode={currency.code}
+        fromSymbol={currency.symbol}
+        toCode={pendingCurrencyCode}
+        toSymbol={pendingCurrency.symbol}
+        onConfirm={handleRateConfirm}
+        onCancel={() => { setRateModalVisible(false); setPendingCurrencyCode(''); }}
+      />
     </View>
   );
 }
@@ -429,6 +506,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
   },
+  currencyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 14,
+  },
+  currencyLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  currencySymbolLarge: {
+    fontSize: 24,
+    fontFamily: 'Inter_700Bold',
+    width: 36,
+    textAlign: 'center',
+  },
+  currencyName: {
+    fontSize: 15,
+    fontFamily: 'Inter_500Medium',
+  },
+  currencyCode: {
+    fontSize: 12,
+    fontFamily: 'Inter_400Regular',
+    marginTop: 1,
+  },
   permRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -454,18 +557,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: 'Inter_400Regular',
     lineHeight: 17,
-  },
-  infoBanner: {
-    flexDirection: 'row',
-    gap: 8,
-    padding: 12,
-    alignItems: 'flex-start',
-  },
-  infoText: {
-    fontSize: 11,
-    fontFamily: 'Inter_400Regular',
-    flex: 1,
-    lineHeight: 16,
   },
   emptyApps: {
     fontSize: 13,

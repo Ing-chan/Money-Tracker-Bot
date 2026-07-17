@@ -18,6 +18,9 @@ import { useBudget } from '@/context/BudgetContext';
 import { BudgetRing } from '@/components/BudgetRing';
 import { TransactionRow } from '@/components/TransactionRow';
 import { ManualEntryModal } from '@/components/ManualEntryModal';
+import { CurrencyPickerModal } from '@/components/CurrencyPickerModal';
+import { ExchangeRateModal } from '@/components/ExchangeRateModal';
+import { getCurrencyByCode } from '@/utils/currencies';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const BAR_COUNT = 7;
@@ -46,7 +49,6 @@ function WeeklyChart({ transactions }: { transactions: { date: string; amount: n
       .reduce((s, t) => s + t.amount, 0)
   );
   const maxAmt = Math.max(...dayAmounts, 1);
-
   const totalWidth = BAR_WIDTH * BAR_COUNT + BAR_GAP * (BAR_COUNT - 1);
 
   return (
@@ -66,7 +68,7 @@ function WeeklyChart({ transactions }: { transactions: { date: string; amount: n
               width={BAR_WIDTH}
               height={amt > 0 ? barH : 3}
               rx={6}
-              fill={isToday ? colors.primary : colors.primary}
+              fill={colors.primary}
               fillOpacity={isToday ? 1 : 0.35}
             />
             <SvgText
@@ -96,9 +98,17 @@ export default function DashboardScreen() {
     removeTransaction,
     refreshTransactions,
     permissionStatus,
+    currency,
+    setGlobalCurrency,
+    formatMoney,
   } = useBudget();
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Global currency change flow
+  const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false);
+  const [rateModalVisible, setRateModalVisible] = useState(false);
+  const [pendingCurrencyCode, setPendingCurrencyCode] = useState('');
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -119,6 +129,31 @@ export default function DashboardScreen() {
   });
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
+
+  const handleCurrencySelect = (code: string) => {
+    if (code === currency.code) return;
+    setPendingCurrencyCode(code);
+    if (transactions.length > 0) {
+      // Need a rate to convert existing transactions
+      setRateModalVisible(true);
+    } else {
+      // No transactions yet — just switch
+      setGlobalCurrency(code);
+    }
+  };
+
+  const handleRateConfirm = async (rate: number) => {
+    setRateModalVisible(false);
+    await setGlobalCurrency(pendingCurrencyCode, rate);
+  };
+
+  const handleRateCancel = () => {
+    setRateModalVisible(false);
+    setPendingCurrencyCode('');
+  };
+
+  // Find the pending currency object for the ExchangeRateModal
+  const pendingCurrency = pendingCurrencyCode ? getCurrencyByCode(pendingCurrencyCode) : currency;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
@@ -156,7 +191,21 @@ export default function DashboardScreen() {
             colors={['#0D1525', '#1A2540']}
             style={[styles.spendingCard, { borderRadius: colors.radius + 2 }]}
           >
-            <Text style={styles.cardLabel}>{monthLabel}</Text>
+            {/* Month label + tappable currency badge */}
+            <View style={styles.cardLabelRow}>
+              <Text style={styles.cardLabel}>{monthLabel}</Text>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.currencyBadge,
+                  { opacity: pressed ? 0.7 : 1 },
+                ]}
+                onPress={() => setCurrencyPickerVisible(true)}
+              >
+                <Text style={styles.currencyBadgeText}>{currency.symbol}</Text>
+                <Feather name="chevron-down" size={10} color="rgba(255,255,255,0.6)" />
+              </Pressable>
+            </View>
+
             <View style={styles.ringRow}>
               <BudgetRing
                 spent={currentMonthTotal}
@@ -168,7 +217,7 @@ export default function DashboardScreen() {
                 destructiveColor={colors.destructive}
               >
                 <Text style={styles.spentAmount}>
-                  ${currentMonthTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  {formatMoney(currentMonthTotal)}
                 </Text>
                 <Text style={styles.spentLabel}>spent</Text>
               </BudgetRing>
@@ -176,9 +225,7 @@ export default function DashboardScreen() {
               <View style={styles.statsCol}>
                 <View style={styles.statItem}>
                   <Text style={styles.statValue}>
-                    {monthlyBudget > 0
-                      ? `$${monthlyBudget.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
-                      : '—'}
+                    {monthlyBudget > 0 ? formatMoney(monthlyBudget) : '—'}
                   </Text>
                   <Text style={styles.statLabel}>Budget</Text>
                 </View>
@@ -191,7 +238,7 @@ export default function DashboardScreen() {
                     ]}
                   >
                     {monthlyBudget > 0
-                      ? `${isOverBudget ? '-' : '+'}$${Math.abs(remaining).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+                      ? `${isOverBudget ? '-' : '+'}${formatMoney(Math.abs(remaining))}`
                       : '—'}
                   </Text>
                   <Text style={styles.statLabel}>{isOverBudget ? 'Over' : 'Left'}</Text>
@@ -269,6 +316,25 @@ export default function DashboardScreen() {
       </Pressable>
 
       <ManualEntryModal visible={modalVisible} onClose={() => setModalVisible(false)} />
+
+      {/* Global currency picker */}
+      <CurrencyPickerModal
+        visible={currencyPickerVisible}
+        selected={currency.code}
+        onSelect={handleCurrencySelect}
+        onClose={() => setCurrencyPickerVisible(false)}
+      />
+
+      {/* Exchange rate prompt for global currency change */}
+      <ExchangeRateModal
+        visible={rateModalVisible}
+        fromCode={currency.code}
+        fromSymbol={currency.symbol}
+        toCode={pendingCurrencyCode}
+        toSymbol={pendingCurrency.symbol}
+        onConfirm={handleRateConfirm}
+        onCancel={handleRateCancel}
+      />
     </View>
   );
 }
@@ -314,13 +380,32 @@ const styles = StyleSheet.create({
     padding: 20,
     marginTop: 0,
   },
+  cardLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
   cardLabel: {
     fontSize: 12,
     fontFamily: 'Inter_500Medium',
     color: 'rgba(255,255,255,0.45)',
     letterSpacing: 0.6,
     textTransform: 'uppercase',
-    marginBottom: 16,
+  },
+  currencyBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  currencyBadgeText: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
+    color: 'rgba(255,255,255,0.85)',
   },
   ringRow: {
     flexDirection: 'row',
@@ -328,7 +413,7 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   spentAmount: {
-    fontSize: 22,
+    fontSize: 20,
     fontFamily: 'Inter_700Bold',
     color: '#FFFFFF',
     textAlign: 'center',
@@ -349,7 +434,7 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   statValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: 'Inter_700Bold',
     color: '#FFFFFF',
   },
