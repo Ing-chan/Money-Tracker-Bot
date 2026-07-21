@@ -133,7 +133,7 @@ export default function DashboardScreen() {
   const handleCurrencySelect = (code: string) => {
     if (code === currency.code) return;
     setPendingCurrencyCode(code);
-    if (transactions.length > 0) {
+    if (transactions.length > 0 && monthlyBudget != null) {
       // Need a rate to convert existing transactions
       setRateModalVisible(true);
     } else {
