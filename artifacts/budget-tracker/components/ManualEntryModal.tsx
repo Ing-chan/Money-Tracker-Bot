@@ -265,6 +265,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   kav: {
+    width: '100%',
     justifyContent: 'flex-end',
   },
   sheet: {
