@@ -17,6 +17,7 @@ import {
   CURRENCY_KEY,
   PENDING_TRANSACTIONS_KEY,
   Transaction,
+  TransactionType,
   TRANSACTIONS_KEY,
   handleNotification,
 } from '@/utils/notificationHandler';
@@ -45,6 +46,8 @@ interface BudgetContextType {
     originalAmount?: number,
     /** Currency code of originalAmount (manual foreign-currency entries only). */
     originalCurrency?: string,
+    /** 'expense' (default) or 'income'. */
+    type?: TransactionType,
   ) => Promise<void>;
   removeTransaction: (id: string) => Promise<void>;
   addBankingApp: (packageName: string, displayName: string) => Promise<void>;
@@ -310,11 +313,13 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       appName = 'manual',
       originalAmount?: number,
       originalCurrency?: string,
+      type: TransactionType = 'expense',
     ) => {
       const tx: Transaction = {
         id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
         // amount is always in the global currency (already converted by caller if needed)
         amount,
+        type,
         originalAmount,
         originalCurrency,
         description: description.trim() || 'Transaction',
@@ -328,6 +333,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     },
     [transactions]
   );
+
 
   const removeTransaction = useCallback(
     async (id: string) => {
@@ -482,17 +488,19 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
     [transactions]
   );
 
-  // Only sum transactions whose amount is in the global currency.
-  // Notification-detected transactions in a foreign currency (detectedCurrency set) are
-  // excluded because we have no exchange rate to convert them — the amount is in an
-  // unknown unit relative to the user's budget.
+  // Sum transactions whose amount is in the global currency, treating income
+  // as a NEGATIVE contribution to "spent this month". So:
+  //     currentMonthTotal = expenses − income
+  // Notification-detected transactions in a foreign currency are excluded
+  // (no exchange rate available).
   const currentMonthTotal = useMemo(
     () =>
       currentMonthTransactions
         .filter(t => !t.detectedCurrency)
-        .reduce((sum, t) => sum + t.amount, 0),
+        .reduce((sum, t) => sum + (t.type === 'income' ? -t.amount : t.amount), 0),
     [currentMonthTransactions]
   );
+
 
   const value = useMemo(
     () => ({
