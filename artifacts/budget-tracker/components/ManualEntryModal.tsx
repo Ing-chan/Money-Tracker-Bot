@@ -31,6 +31,8 @@ export function ManualEntryModal({ visible, onClose }: ManualEntryModalProps) {
   const [description, setDescription] = useState('');
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // 'expense' subtracts from the remaining budget, 'income' adds to it.
+  const [txType, setTxType] = useState<'expense' | 'income'>('expense');
 
   // Currency picker state
   const [selectedCurrencyCode, setSelectedCurrencyCode] = useState(globalCurrency.code);
@@ -51,6 +53,7 @@ export function ManualEntryModal({ visible, onClose }: ManualEntryModalProps) {
       setAmount('');
       setDescription('');
       setError('');
+      setTxType('expense');
     }
   }, [visible, globalCurrency.code]);
 
@@ -91,11 +94,12 @@ export function ManualEntryModal({ visible, onClose }: ManualEntryModalProps) {
     setSubmitting(true);
     await addTransaction(
       amount,
-      description.trim() || 'Manual entry',
+      description.trim() || (txType === 'income' ? 'Manual income' : 'Manual entry'),
       'manual',
       'manual',
       originalAmount,
       originalCurrency,
+      txType,
     );
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setSubmitting(false);
@@ -139,12 +143,50 @@ export function ManualEntryModal({ visible, onClose }: ManualEntryModalProps) {
               {/* Handle */}
               <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
-              <Text style={[styles.title, { color: colors.foreground }]}>Add Expense</Text>
+              <Text style={[styles.title, { color: colors.foreground }]}>
+                {txType === 'income' ? 'Add Income' : 'Add Expense'}
+              </Text>
               <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
                 Manually log a transaction
               </Text>
 
               <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+                {/* Expense / Income segmented toggle */}
+                <View style={[styles.typeToggle, { borderColor: colors.border, borderRadius: colors.radius }]}>
+                  {(['expense', 'income'] as const).map(t => {
+                    const active = txType === t;
+                    const activeBg = t === 'income' ? '#12B76A' : colors.primary;
+                    return (
+                      <Pressable
+                        key={t}
+                        onPress={() => setTxType(t)}
+                        style={[
+                          styles.typeSeg,
+                          {
+                            backgroundColor: active ? activeBg : 'transparent',
+                            borderRadius: colors.radius,
+                          },
+                        ]}
+                      >
+                        <Feather
+                          name={t === 'income' ? 'arrow-down-left' : 'arrow-up-right'}
+                          size={14}
+                          color={active ? colors.primaryForeground : colors.mutedForeground}
+                        />
+                        <Text
+                          style={[
+                            styles.typeSegText,
+                            { color: active ? colors.primaryForeground : colors.mutedForeground },
+                          ]}
+                        >
+                          {t === 'income' ? 'Income' : 'Expense'}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+
                 {/* Amount + Currency */}
                 <Text style={[styles.label, { color: colors.mutedForeground }]}>AMOUNT</Text>
                 <View style={styles.amountRow}>
@@ -220,13 +262,13 @@ export function ManualEntryModal({ visible, onClose }: ManualEntryModalProps) {
                   <Pressable
                     style={[
                       styles.addBtn,
-                      { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: submitting ? 0.6 : 1 },
+                      { backgroundColor: txType === 'income' ? '#12B76A' : colors.primary, borderRadius: colors.radius, opacity: submitting ? 0.6 : 1 },
                     ]}
                     onPress={handleSubmit}
                     disabled={submitting}
                   >
                     <Text style={[styles.addText, { color: colors.primaryForeground }]}>
-                      {submitting ? 'Adding…' : 'Add Expense'}
+                      {submitting ? 'Adding…' : txType === 'income' ? 'Add Income' : 'Add Expense'}
                     </Text>
                   </Pressable>
                 </View>
@@ -265,7 +307,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   kav: {
-    width: '100%',
     justifyContent: 'flex-end',
   },
   sheet: {
@@ -298,6 +339,25 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     letterSpacing: 0.8,
     marginBottom: 8,
+  },
+  typeToggle: {
+    flexDirection: 'row',
+    borderWidth: 1,
+    padding: 3,
+    marginBottom: 18,
+    gap: 3,
+  },
+  typeSeg: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+  },
+  typeSegText: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
   },
   amountRow: {
     flexDirection: 'row',

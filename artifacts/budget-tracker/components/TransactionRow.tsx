@@ -17,6 +17,11 @@ export function TransactionRow({ transaction, onDelete }: TransactionRowProps) {
   const dateStr = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   const timeStr = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
   const isNotification = transaction.source === 'notification';
+  const isIncome = transaction.type === 'income';
+  // Income is drawn in green with a leading "+"; expense keeps the default
+  // foreground colour and no sign prefix (the primary "spent this month"
+  // number in the ring already implies spend for the untagged case).
+  const INCOME_GREEN = '#12B76A';
 
   /**
    * Display rules (in priority order):
@@ -50,6 +55,9 @@ export function TransactionRow({ transaction, onDelete }: TransactionRowProps) {
     primaryAmountStr = formatMoney(transaction.amount);
   }
 
+  // Prepend a "+" for income so glancing at the list makes direction obvious.
+  const primaryDisplay = isIncome ? `+${primaryAmountStr}` : primaryAmountStr;
+
   const handleLongPress = () => {
     if (!onDelete) return;
     Alert.alert('Delete Transaction', 'Remove this transaction from your log?', [
@@ -78,13 +86,19 @@ export function TransactionRow({ transaction, onDelete }: TransactionRowProps) {
       <View
         style={[
           styles.iconWrap,
-          { backgroundColor: isNotification ? `${colors.primary}20` : `${colors.secondary}` },
+          {
+            backgroundColor: isIncome
+              ? `${INCOME_GREEN}20`
+              : isNotification
+                ? `${colors.primary}20`
+                : `${colors.secondary}`,
+          },
         ]}
       >
         <Feather
-          name={isNotification ? 'bell' : 'edit-3'}
+          name={isIncome ? 'arrow-down-left' : isNotification ? 'bell' : 'edit-3'}
           size={15}
-          color={isNotification ? colors.primary : colors.mutedForeground}
+          color={isIncome ? INCOME_GREEN : isNotification ? colors.primary : colors.mutedForeground}
         />
       </View>
 
@@ -93,7 +107,7 @@ export function TransactionRow({ transaction, onDelete }: TransactionRowProps) {
           {transaction.description || 'Transaction'}
         </Text>
         <Text style={[styles.meta, { color: colors.mutedForeground }]}>
-          {isNotification ? transaction.appName : 'Manual'} · {dateStr} · {timeStr}
+          {isIncome ? 'Income · ' : ''}{isNotification ? transaction.appName : 'Manual'} · {dateStr} · {timeStr}
         </Text>
         {excludedFromBudget && (
           <Text style={[styles.excluded, { color: '#FFB020' }]}>
@@ -103,13 +117,16 @@ export function TransactionRow({ transaction, onDelete }: TransactionRowProps) {
       </View>
 
       <View style={styles.amountCol}>
-        <Text style={[styles.amount, { color: colors.foreground }]}>{primaryAmountStr}</Text>
+        <Text style={[styles.amount, { color: isIncome ? INCOME_GREEN : colors.foreground }]}>
+          {primaryDisplay}
+        </Text>
         {secondaryAmountStr && (
           <Text style={[styles.amountSub, { color: colors.mutedForeground }]}>
             {secondaryAmountStr}
           </Text>
         )}
       </View>
+
     </Pressable>
   );
 }
