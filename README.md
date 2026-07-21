@@ -1,8 +1,8 @@
-Questo è il mio tentativ di fare una app per aiutarmi a tener traccai di come spendo.
+Questo è il mio tentativo di fare una app per aiutarmi a tener traccai di come spendo.
 
 TODO:
 
-Cancellare artifacts/api-server perché l'app non è più online e artifacts/budget-tracker/server/serve.js se non mi serve la preview di Expo.
+Cancellare artifacts/budget-tracker/server/serve.js se non mi serve la preview di Expo.
 
 FUNZIONAMENTO:
 
