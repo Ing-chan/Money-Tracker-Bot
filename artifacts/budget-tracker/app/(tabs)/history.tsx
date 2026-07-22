@@ -26,7 +26,7 @@ interface Section {
 export default function HistoryScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { transactions, removeTransaction, refreshTransactions } = useBudget();
+  const { transactions, removeTransaction, refreshTransactions, formatMoney } = useBudget();
   const [query, setQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
@@ -105,7 +105,7 @@ export default function HistoryScreen() {
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionMonth, { color: colors.foreground }]}>{section.title}</Text>
             <Text style={[styles.sectionTotal, { color: colors.primary }]}>
-              ${section.total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {formatMoney(section.total)}
             </Text>
           </View>
         )}
