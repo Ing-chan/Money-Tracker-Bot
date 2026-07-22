@@ -18,15 +18,27 @@
       "bundleIdentifier": "com.budgetexpensestracker.app"
     },
     "android": {
-      "package": "com.budgetexpensestracker.app"
+      "package": "com.budgetexpensestracker.app",
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/icon_2.png",
+        "backgroundColor": "#0A0F1E"
+      },
+      "permissions": [
+        "POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/images/icon_2.png"
     },
-    "plugins": ["expo-router", "expo-font", "expo-web-browser"],
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-web-browser",
+      "./plugins/withAllowBackupFix.js"
+    ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": false
     }
   }
 }

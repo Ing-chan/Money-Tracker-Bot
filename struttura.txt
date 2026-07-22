@@ -1,0 +1,56 @@
+.
+├── artifacts
+│   └── budget-tracker
+│       ├── app
+│       │   ├── _layout.tsx
+│       │   ├── +not-found.tsx
+│       │   └── (tabs)
+│       │       ├── history.tsx
+│       │       ├── index.tsx
+│       │       ├── _layout.tsx
+│       │       └── settings.tsx
+│       ├── app.json
+│       ├── assets
+│       │   └── images
+│       │       ├── icon_2.png
+│       │       ├── icon.png
+│       │       └── splash-icon.png
+│       ├── babel.config.js
+│       ├── components
+│       │   ├── BudgetRing.tsx
+│       │   ├── CurrencyPickerModal.tsx
+│       │   ├── ErrorBoundary.tsx
+│       │   ├── ErrorFallback.tsx
+│       │   ├── ExchangeRateModal.tsx
+│       │   ├── KeyboardAwareScrollViewCompat.tsx
+│       │   ├── ManualEntryModal.tsx
+│       │   ├── PendingReviewModal.tsx
+│       │   └── TransactionRow.tsx
+│       ├── constants
+│       │   └── colors.ts
+│       ├── context
+│       │   └── BudgetContext.tsx
+│       ├── hooks
+│       │   └── useColors.ts
+│       ├── metro.config.js
+│       ├── package.json
+│       ├── tsconfig.json
+│       └── utils
+│           ├── amountExtractor.ts
+│           ├── csvExport.ts
+│           ├── currencies.ts
+│           └── notificationHandler.ts
+├── package.json
+├── pnpm-lock.yaml
+├── pnpm-workspace.yaml
+├── README.md
+├── scripts
+│   ├── package.json
+│   ├── src
+│   │   └── hello.ts
+│   └── tsconfig.json
+├── struttura.txt
+├── tsconfig.base.json
+└── tsconfig.json
+
+14 directories, 40 files
