@@ -93,7 +93,8 @@ export default function DashboardScreen() {
   const {
     transactions,
     monthlyBudget,
-    currentMonthTotal,
+    currentMonthSpent,
+    currentMonthIncome,
     currentMonthTransactions,
     removeTransaction,
     refreshTransactions,
@@ -117,7 +118,7 @@ export default function DashboardScreen() {
   };
 
   const recentTransactions = transactions.slice(0, 5);
-  const remaining = monthlyBudget - currentMonthTotal;
+  const remaining = monthlyBudget - currentMonthSpent + currentMonthIncome;
   const budgetPct = monthlyBudget > 0 ? Math.min(currentMonthTotal / monthlyBudget, 1) : 0;
   const isOverBudget = monthlyBudget > 0 && currentMonthTotal > monthlyBudget;
 
@@ -203,7 +204,7 @@ export default function DashboardScreen() {
 
             <View style={styles.ringRow}>
               <BudgetRing
-                spent={currentMonthTotal}
+                spent={currentMonthSpent}
                 budget={monthlyBudget}
                 size={170}
                 strokeWidth={14}
@@ -212,7 +213,7 @@ export default function DashboardScreen() {
                 destructiveColor={colors.destructive}
               >
                 <Text style={styles.spentAmount}>
-                  {formatMoney(currentMonthTotal)}
+                  {formatMoney(currentMonthSpent)}
                 </Text>
                 <Text style={styles.spentLabel}>spent</Text>
               </BudgetRing>
@@ -272,7 +273,9 @@ export default function DashboardScreen() {
         <View style={[styles.section, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>This Week</Text>
           <View style={{ overflow: 'hidden' }}>
-            <WeeklyChart transactions={transactions} />
+            <WeeklyChart
+              transactions={transactions.filter(t => t.type !== 'income' && !t.detectedCurrency)}
+            />
           </View>
         </View>
 
