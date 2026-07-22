@@ -19,7 +19,8 @@ import type { Transaction } from '@/utils/notificationHandler';
 
 interface Section {
   title: string;
-  total: number;
+  spent: number;
+  income: number;
   data: Transaction[];
 }
 
@@ -48,9 +49,14 @@ export default function HistoryScreen() {
       const d = new Date(tx.date);
       const key = `${d.getFullYear()}-${String(d.getMonth()).padStart(2, '0')}`;
       const label = d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      if (!map[key]) map[key] = { title: label, total: 0, data: [] };
+      if (!map[key]) map[key] = { title: label, spent: 0, income: 0, data: [] };
       map[key].data.push(tx);
-      map[key].total += tx.amount;
+      if (tx.detectedCurrency) continue; // amount isn't in the global currency, skip from totals
+      if (tx.type === 'income') {
+        map[key].income += tx.amount;
+      } else {
+        map[key].spent += tx.amount;
+      }
     }
     return Object.entries(map)
       .sort(([a], [b]) => b.localeCompare(a))
@@ -104,9 +110,16 @@ export default function HistoryScreen() {
         renderSectionHeader={({ section }) => (
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionMonth, { color: colors.foreground }]}>{section.title}</Text>
-            <Text style={[styles.sectionTotal, { color: colors.primary }]}>
-              {formatMoney(section.total)}
-            </Text>
+            <View style={styles.sectionTotals}>
+              <Text style={[styles.sectionTotal, { color: colors.primary }]}>
+                {formatMoney(section.spent)}
+              </Text>
+              {section.income > 0 && (
+                <Text style={[styles.sectionIncome, { color: '#12B76A' }]}>
+                  +{formatMoney(section.income)}
+                </Text>
+              )}
+            </View>
           </View>
         )}
         renderItem={({ item }) => (
@@ -196,9 +209,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontFamily: 'Inter_600SemiBold',
   },
+  sectionTotals: {
+    alignItems: 'flex-end',
+  },
   sectionTotal: {
     fontSize: 15,
     fontFamily: 'Inter_700Bold',
+  },
+  sectionIncome: {
+    fontSize: 12,
+    fontFamily: 'Inter_600SemiBold',
+    marginTop: 1,
   },
   empty: {
     marginTop: 60,
