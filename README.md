@@ -1,7 +1,10 @@
 Questo è il mio tentativo di fare una app per aiutarmi a tener traccai di come spendo.
 
-Problema: 
-Il progetto funziona solo come un progetto Expo "managed". Devo sistemare il tutto per farlo runnare su Android Studio, altrimenti mi tocca sempre usare Expo Go (che però non include il mio modulo nativo per leggere notifiche bancarie quindi devo farlo per forza con app nativa).
+Sono riuscito a fare una build release e pushare l'apk sul mio telefono ma ora non funziona più ilbuild e non trovo più l'apk, mi sa che il push o la organizzazione della cartella git ha eliminato un pò di roba...
+
+Inoltre l'errore del cambiare valuta enza transazioni ancora non modifica il budget
+Ho poi notato che se inserisco spesa e poi income dello stesso prezzo (es: 3 uscite e 3 entrate) viene erroneamente fuori che ho speso 0. 
+Da fixare: amount left può aumentare di quei 3 mentre invece spent non può diminuire!!
 
 FUNZIONAMENTO:
 
