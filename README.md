@@ -11,7 +11,9 @@ Da fixare: amount left può aumentare di quei 3 mentre invece spent non può dim
 
 Nella History tab rimane il simbolo del dollaro e non viene cambiato assieme alle currencies, deve cambiare!! 
 
-laa scheramta Add Expense per l'aggiunta manuale e quella di exchange rate vanno modificate in modo che quando compare la tastiera a chermo non va sopra i riquadri, i riquadri devono scivolare verso l'alto!!
+laa scheramta Add Expense per l'aggiunta manuale e quella di exchange rate vanno modificate in modo che quando compare la tastiera a chermo non va sopra i riquadri, i riquadri devono scivolare verso l'alto.
+Exhage rate basta si sposti di 2/3 cm mentre inveceAdd expense deve proprio salire di un pò. 
+Vorrei fare come su whatsapp dove la barra di inserimento del messaggi e tasto per audio/invio salgono e fluttuano fino ad arrivare a pelo con la tastiera e poi tornano giù quando scompare la tastiera.
 
 FUNZIONAMENTO: (da verificare)
 
