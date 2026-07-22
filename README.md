@@ -2,7 +2,7 @@ Questo è il mio tentativo di fare una app per aiutarmi a tener traccai di come 
 
 TODO:
 
-Inoltre l'errore del cambiare valuta enza transazioni ancora non modifica il budget. Ho provato un fix veloce, ma non ha funzionato.
+Inoltre l'errore del cambiare valuta enza transazioni ancora non modifica il budget. Ho provato un fix veloce, vediamo se ha funzionato.
 
 Ho poi notato che se inserisco spesa e poi income dello stesso prezzo (es: 3 uscite e 3 entrate) viene erroneamente fuori che ho speso 0. 
 Da fixare: amount left può aumentare di quei 3 mentre invece spent non può diminuire!!
