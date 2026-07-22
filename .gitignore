@@ -1,49 +1,81 @@
 # See https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files for more about ignoring files.
 
-# compiled output
-dist
-tmp
-out-tsc
+# ==========================================
+# Dependencies & Package Managers
+# ==========================================
+node_modules/
+.pnpm-store/
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# ==========================================
+# Expo & Build Outputs
+# ==========================================
+.expo/
+.expo-shared/
+.eas/
+dist/
+build/
+web-build/
+out-tsc/
 *.tsbuildinfo
-.expo
-.expo-shared
+expo-env.d.ts
 
-# dependencies
-node_modules
+# ==========================================
+# Native Folders & Binaries (Expo Prebuild / EAS)
+# ==========================================
+# Ignora le cartelle native in qualsiasi sotto-cartella del monorepo
+**/android/
+**/ios/
 
-# IDEs and editors
-/.idea
-.project
-.classpath
-.c9/
-*.launch
-.settings/
-*.sublime-workspace
+# Binari e Chiavi Native
+*.apk
+*.aab
+*.ipa
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.pem
 
-# IDE - VSCode
+# ==========================================
+# Environment & Local Configuration
+# ==========================================
+.env
+.env.*
+!.env.example
+
+# ==========================================
+# IDEs, Editors & Caches
+# ==========================================
+.idea/
 .vscode/*
 !.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 
-# misc
-/.sass-cache
-/connect.lock
-/coverage
-/libpeerconnection.log
-npm-debug.log
-yarn-error.log
-testem.log
-/typings
-
-# System Files
-.DS_Store
-Thumbs.db
-
-.cursor/rules/nx-rules.mdc
-.github/instructions/nx.instructions.md
-
-# Local/tooling caches
 .cache/
 .local/
+.metro-health-check*
+.vercel
+
+# ==========================================
+# System Files & Logs
+# ==========================================
+.DS_Store
+Thumbs.db
+*.log
+coverage/
+node_modules/
+android/app/build/
+android/.gradle/
+android/.kotlin/
+ios/build/
+ios/Pods/
+*.apk
+*.aab
+.expo/
+dist/
