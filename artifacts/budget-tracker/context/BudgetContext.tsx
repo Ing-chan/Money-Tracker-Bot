@@ -269,7 +269,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
 
       // If a conversion rate is given, multiply all existing transaction amounts
       let updatedTransactions = transactions;
-      if (rate && rate > 0 && transactions.length > 0) {
+      if (rate && rate > 0) {
         updatedTransactions = transactions.map(tx => {
           // Only convert transactions whose amount is in the current global currency
           // (i.e. those without detectedCurrency). Foreign-detected ones stay as-is.
@@ -283,7 +283,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
         setTransactions(updatedTransactions);
         await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(updatedTransactions));
 
-        // Also convert monthly budget
+        // Always convert the monthly budget when a rate is given,
+        // regardless of whether there are any transactions yet.
         const newBudget = Math.round(monthlyBudget * rate * 100) / 100;
         setMonthlyBudgetState(newBudget);
         await AsyncStorage.setItem(BUDGET_KEY, JSON.stringify(newBudget));
