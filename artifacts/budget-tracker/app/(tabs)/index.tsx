@@ -135,7 +135,6 @@ export default function DashboardScreen() {
     setPendingCurrencyCode(code);
     // Need a rate to convert existing transactions
     setRateModalVisible(true);
-    }
   };
 
   const handleRateConfirm = async (rate: number) => {
