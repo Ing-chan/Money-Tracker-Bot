@@ -58,7 +58,8 @@ interface BudgetContextType {
   openNotificationSettings: () => void;
   exportCsv: () => Promise<void>;
   clearAllData: () => Promise<void>;
-  currentMonthTotal: number;
+  currentMonthSpent: number; /** Sum of this month's expenses only — never reduced by income. */
+  currentMonthIncome: number; /** Sum of this month's income only. */
   currentMonthTransactions: Transaction[];
   /** Notification transactions waiting for user review (≥3 triggers the modal on open). */
   pendingTransactions: Transaction[];
@@ -493,14 +494,24 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   //     currentMonthTotal = expenses − income
   // Notification-detected transactions in a foreign currency are excluded
   // (no exchange rate available).
-  const currentMonthTotal = useMemo(
-    () =>
-      currentMonthTransactions
-        .filter(t => !t.detectedCurrency)
-        .reduce((sum, t) => sum + (t.type === 'income' ? -t.amount : t.amount), 0),
-    [currentMonthTransactions]
-  );
+  // "Spent" reflects expenses only and is never reduced by income.
+const currentMonthSpent = useMemo(
+  () =>
+    currentMonthTransactions
+      .filter(t => !t.detectedCurrency && t.type !== 'income')
+      .reduce((sum, t) => sum + t.amount, 0),
+  [currentMonthTransactions]
+);
 
+// Tracked separately so income can top up "amount left" without
+// ever decreasing "spent".
+const currentMonthIncome = useMemo(
+  () =>
+    currentMonthTransactions
+      .filter(t => !t.detectedCurrency && t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0),
+  [currentMonthTransactions]
+);
 
   const value = useMemo(
     () => ({
@@ -522,7 +533,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       openNotificationSettings,
       exportCsv,
       clearAllData,
-      currentMonthTotal,
+      currentMonthSpent,
+      currentMonthIncome,
       currentMonthTransactions,
       pendingTransactions,
       pendingReviewVisible,
