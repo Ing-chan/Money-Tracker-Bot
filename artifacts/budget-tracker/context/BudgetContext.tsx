@@ -268,9 +268,8 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       const newCurrency = getCurrencyByCode(code);
 
       // If a conversion rate is given, multiply all existing transaction amounts
-      let updatedTransactions = transactions;
       if (rate && rate > 0) {
-        updatedTransactions = transactions.map(tx => {
+        const updatedTransactions = transactions.map(tx => {
           // Only convert transactions whose amount is in the current global currency
           // (i.e. those without detectedCurrency). Foreign-detected ones stay as-is.
           if (tx.detectedCurrency) return tx;
