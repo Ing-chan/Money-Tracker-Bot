@@ -15,7 +15,8 @@ laa scheramta Add Expense per l'aggiunta manuale e quella di exchange rate vanno
 Exhage rate basta si sposti di 2/3 cm mentre inveceAdd expense deve proprio salire di un pò. 
 Vorrei fare come su whatsapp dove la barra di inserimento del messaggi e tasto per audio/invio salgono e fluttuano fino ad arrivare a pelo con la tastiera e poi tornano giù quando scompare la tastiera.
 
-FUNZIONAMENTO: (da verificare)
+FUNZIONAMENTO:
+(per il momento nonsembra funzionare, ho dato special app access -> notification read,reply and control alla app ma non ha letto il bank transfer, magari funziona almeno con le notifiche della carta?)
 
 utils/notificationHandler.ts → handleNotification() rileva le notifiche bancarie
 
