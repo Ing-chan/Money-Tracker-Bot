@@ -119,8 +119,8 @@ export default function DashboardScreen() {
 
   const recentTransactions = transactions.slice(0, 5);
   const remaining = monthlyBudget - currentMonthSpent + currentMonthIncome;
-  const budgetPct = monthlyBudget > 0 ? Math.min(currentMonthTotal / monthlyBudget, 1) : 0;
-  const isOverBudget = monthlyBudget > 0 && currentMonthTotal > monthlyBudget;
+  const budgetPct = monthlyBudget > 0 ? Math.min(currentMonthSpent / monthlyBudget, 1) : 0;
+  const isOverBudget = monthlyBudget > 0 && currentMonthSpent > monthlyBudget;
 
   const monthLabel = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const dateLabel = new Date().toLocaleDateString('en-US', {
