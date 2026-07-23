@@ -142,16 +142,12 @@ export default function SettingsScreen() {
     );
   };
 
-  // Currency picker handlers
   const handleCurrencySelect = (code: string) => {
     if (code === currency.code) return;
     setPendingCurrencyCode(code);
-    if (transactions.length > 0) {
-      setRateModalVisible(true);
-    } else {
-      setGlobalCurrency(code);
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    }
+    // Always ask for a rate: the budget needs converting regardless of
+    // whether there are any transactions yet.
+    setRateModalVisible(true);
   };
 
   const handleRateConfirm = async (rate: number) => {
