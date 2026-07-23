@@ -114,9 +114,11 @@ export function classifyTransactionType(content: string): TransactionType {
  * notification arrives (Android only). Reads/writes AsyncStorage directly
  * since React context is unavailable.
  */
-export async function handleNotification(notification: Record<string, string>): Promise<void> {
+export async function handleNotification(data: { notification?: string }): Promise<void> {
   try {
-    const { app, title, text, bigText } = notification;
+    // The native module hands us { notification: "<json string>" } — parse it first.
+    if (!data?.notification) return;
+    const { app, title, text, bigText } = JSON.parse(data.notification) as Record<string, string>;
 
     // Load user's configured banking apps
     const appsJson = await AsyncStorage.getItem(BANKING_APPS_KEY);
