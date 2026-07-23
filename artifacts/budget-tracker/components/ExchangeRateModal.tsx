@@ -20,6 +20,7 @@ interface ExchangeRateModalProps {
   fromSymbol: string;
   toCode: string;
   toSymbol: string;
+  subtitle?: string;
   /** Called with the exchange rate when the user confirms. */
   onConfirm: (rate: number) => void;
   onCancel: () => void;
@@ -35,6 +36,7 @@ export function ExchangeRateModal({
   fromSymbol,
   toCode,
   toSymbol,
+  subtitle,
   onConfirm,
   onCancel,
 }: ExchangeRateModalProps) {
@@ -83,7 +85,7 @@ export function ExchangeRateModal({
         >
           <Text style={[styles.title, { color: colors.foreground }]}>Exchange Rate</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-            Enter the current rate so amounts can be converted correctly.
+            {subtitle ?? 'Enter the current rate so amounts can be converted correctly.'}
           </Text>
 
           <View style={styles.equation}>
