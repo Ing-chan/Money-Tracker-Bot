@@ -1,9 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,6 +9,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import * as Haptics from 'expo-haptics';
 import { Feather } from '@expo/vector-icons';
 import { useBudget } from '@/context/BudgetContext';
@@ -133,7 +132,7 @@ export function ManualEntryModal({ visible, onClose }: ManualEntryModalProps) {
       >
         <Pressable style={styles.overlay} onPress={onClose}>
           <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+            behavior="padding"
             style={styles.kav}
           >
             <Pressable
