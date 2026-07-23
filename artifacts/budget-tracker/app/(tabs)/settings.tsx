@@ -16,7 +16,7 @@ import { useColors } from '@/hooks/useColors';
 import { useBudget } from '@/context/BudgetContext';
 import { CurrencyPickerModal } from '@/components/CurrencyPickerModal';
 import { ExchangeRateModal } from '@/components/ExchangeRateModal';
-import { getCurrencyByCode } from '@/utils/currencies';
+import { useGlobalCurrencyChange } from '@/hooks/useGlobalCurrencyChange';
 
 const BANKING_PRESETS = [
   // ── Italian / European ──────────────────────────────────────────────────
@@ -85,8 +85,14 @@ export default function SettingsScreen() {
 
   // Currency flow
   const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false);
-  const [rateModalVisible, setRateModalVisible] = useState(false);
-  const [pendingCurrencyCode, setPendingCurrencyCode] = useState('');
+  const {
+    rateModalVisible,
+    pendingCurrencyCode,
+    pendingCurrency,
+    handleCurrencySelect,
+    handleRateConfirm,
+    handleRateCancel,
+  } = useGlobalCurrencyChange();
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -141,22 +147,6 @@ export default function SettingsScreen() {
       ]
     );
   };
-
-  const handleCurrencySelect = (code: string) => {
-    if (code === currency.code) return;
-    setPendingCurrencyCode(code);
-    // Always ask for a rate: the budget needs converting regardless of
-    // whether there are any transactions yet.
-    setRateModalVisible(true);
-  };
-
-  const handleRateConfirm = async (rate: number) => {
-    setRateModalVisible(false);
-    await setGlobalCurrency(pendingCurrencyCode, rate);
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-  };
-
-  const pendingCurrency = pendingCurrencyCode ? getCurrencyByCode(pendingCurrencyCode) : currency;
 
   const permissionColor =
     permissionStatus === 'authorized'
@@ -473,7 +463,7 @@ export default function SettingsScreen() {
         toCode={pendingCurrencyCode}
         toSymbol={pendingCurrency.symbol}
         onConfirm={handleRateConfirm}
-        onCancel={() => { setRateModalVisible(false); setPendingCurrencyCode(''); }}
+        onCancel={handleRateCancel}
       />
     </View>
   );

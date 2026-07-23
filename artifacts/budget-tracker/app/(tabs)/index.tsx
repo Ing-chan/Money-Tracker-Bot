@@ -20,7 +20,7 @@ import { TransactionRow } from '@/components/TransactionRow';
 import { ManualEntryModal } from '@/components/ManualEntryModal';
 import { CurrencyPickerModal } from '@/components/CurrencyPickerModal';
 import { ExchangeRateModal } from '@/components/ExchangeRateModal';
-import { getCurrencyByCode } from '@/utils/currencies';
+import { useGlobalCurrencyChange } from '@/hooks/useGlobalCurrencyChange';
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const BAR_COUNT = 7;
@@ -103,13 +103,20 @@ export default function DashboardScreen() {
     setGlobalCurrency,
     formatMoney,
   } = useBudget();
+
   const [modalVisible, setModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   // Global currency change flow
   const [currencyPickerVisible, setCurrencyPickerVisible] = useState(false);
-  const [rateModalVisible, setRateModalVisible] = useState(false);
-  const [pendingCurrencyCode, setPendingCurrencyCode] = useState('');
+  const {
+    rateModalVisible,
+    pendingCurrencyCode,
+    pendingCurrency,
+    handleCurrencySelect,
+    handleRateConfirm,
+    handleRateCancel,
+  } = useGlobalCurrencyChange();
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -130,26 +137,6 @@ export default function DashboardScreen() {
   });
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
-
-  const handleCurrencySelect = (code: string) => {
-    if (code === currency.code) return;
-    setPendingCurrencyCode(code);
-    // Need a rate to convert existing transactions
-    setRateModalVisible(true);
-  };
-
-  const handleRateConfirm = async (rate: number) => {
-    setRateModalVisible(false);
-    await setGlobalCurrency(pendingCurrencyCode, rate);
-  };
-
-  const handleRateCancel = () => {
-    setRateModalVisible(false);
-    setPendingCurrencyCode('');
-  };
-
-  // Find the pending currency object for the ExchangeRateModal
-  const pendingCurrency = pendingCurrencyCode ? getCurrencyByCode(pendingCurrencyCode) : currency;
 
   return (
     <View style={[styles.root, { backgroundColor: colors.background }]}>
