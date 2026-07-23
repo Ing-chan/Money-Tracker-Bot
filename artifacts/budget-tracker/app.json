@@ -34,7 +34,8 @@
       "expo-router",
       "expo-font",
       "expo-web-browser",
-      "./plugins/withAllowBackupFix.js"
+      "./plugins/withAllowBackupFix.js",
+      "./plugins/withArm64OnlyBuild.js"
     ],
     "experiments": {
       "typedRoutes": true,
