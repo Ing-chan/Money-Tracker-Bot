@@ -16,6 +16,7 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { BudgetProvider } from '@/context/BudgetContext';
 import { PendingReviewModal } from '@/components/PendingReviewModal';
+import { CurrencyConversionPrompt } from '@/components/CurrencyConversionPrompt';
 import { handleNotification } from '@/utils/notificationHandler';
 
 // Register Android notification listener headless task at module-load time.
@@ -73,6 +74,7 @@ export default function RootLayout() {
               <BudgetProvider>
                 <RootLayoutNav />
                 <PendingReviewModal />
+                <CurrencyConversionPrompt />
               </BudgetProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>
