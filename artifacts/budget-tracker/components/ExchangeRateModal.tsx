@@ -1,15 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import Animated, { Extrapolation, interpolate, useAnimatedStyle } from 'react-native-reanimated';
+import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import { useColors } from '@/hooks/useColors';
+
+// How far the dialog rises when the keyboard shows (~2-3cm). Tweak to taste.
+const EXCHANGE_MODAL_LIFT = 90;
 
 interface ExchangeRateModalProps {
   visible: boolean;
@@ -39,6 +42,14 @@ export function ExchangeRateModal({
   const [rateInput, setRateInput] = useState('');
   const [error, setError] = useState('');
   const inputRef = useRef<TextInput>(null);
+  const { progress } = useReanimatedKeyboardAnimation();
+  const liftStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        translateY: interpolate(progress.value, [0, 1], [0, -EXCHANGE_MODAL_LIFT], Extrapolation.CLAMP),
+      },
+    ],
+  }));
 
   useEffect(() => {
     if (visible) {
@@ -65,12 +76,11 @@ export function ExchangeRateModal({
       onRequestClose={onCancel}
       statusBarTranslucent
     >
-      <KeyboardAvoidingView
-        style={styles.overlay}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
+      <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={onCancel} />
-        <View style={[styles.dialog, { backgroundColor: colors.card, borderColor: colors.border }]}>
+        <Animated.View
+          style={[styles.dialog, liftStyle, { backgroundColor: colors.card, borderColor: colors.border }]}
+        >
           <Text style={[styles.title, { color: colors.foreground }]}>Exchange Rate</Text>
           <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
             Enter the current rate so amounts can be converted correctly.
@@ -126,8 +136,8 @@ export function ExchangeRateModal({
               <Text style={[styles.confirmText, { color: colors.primaryForeground }]}>Apply</Text>
             </Pressable>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </Animated.View>
+      </View>
     </Modal>
   );
 }
