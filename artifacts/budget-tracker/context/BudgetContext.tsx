@@ -63,6 +63,8 @@ interface BudgetContextType {
   currentMonthTransactions: Transaction[];
   /** Notification transactions waiting for user review (≥3 triggers the modal on open). */
   pendingTransactions: Transaction[];
+  unconvertedByCurrency: Record<string, Transaction[]>;
+  convertPendingCurrency: (code: string, rate: number) => Promise<void>;
   /** Whether the full-screen pending review modal should be visible. */
   pendingReviewVisible: boolean;
   approvePendingTransaction: (id: string, overrides?: { amount?: number; description?: string }) => Promise<void>;
@@ -294,6 +296,36 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       await AsyncStorage.setItem(CURRENCY_KEY, JSON.stringify(code));
     },
     [transactions, monthlyBudget]
+  );
+
+  // Foreign-currency transactions grouped by detected currency code, still
+  // awaiting a manual exchange rate before they can count toward the budget.
+  const unconvertedByCurrency = useMemo(() => {
+    const map: Record<string, Transaction[]> = {};
+    for (const t of transactions) {
+      if (!t.detectedCurrency) continue;
+      if (!map[t.detectedCurrency]) map[t.detectedCurrency] = [];
+      map[t.detectedCurrency].push(t);
+    }
+    return map;
+  }, [transactions]);
+
+  const convertPendingCurrency = useCallback(
+    async (code: string, rate: number) => {
+      const updated = transactions.map(t => {
+        if (t.detectedCurrency !== code) return t;
+        return {
+          ...t,
+          amount: Math.round(t.amount * rate * 100) / 100,
+          originalAmount: t.amount,
+          originalCurrency: code,
+          detectedCurrency: undefined,
+        };
+      });
+      setTransactions(updated);
+      await AsyncStorage.setItem(TRANSACTIONS_KEY, JSON.stringify(updated));
+    },
+    [transactions]
   );
 
   const formatMoney = useCallback(
@@ -543,6 +575,8 @@ const currentMonthIncome = useMemo(
       approveAllPending,
       rejectAllPending,
       dismissPendingReview,
+      unconvertedByCurrency,
+      convertPendingCurrency,
     }),
     [
       transactions,
