@@ -9,7 +9,7 @@ import React, {
 } from 'react';
 import { AppState, AppStateStatus, Linking, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { shareCsv } from '@/utils/csvExport';
+import { shareCsv, sharePdf } from '@/utils/csvExport';
 import {
   BANKING_APPS_KEY,
   BankingApp,
@@ -73,9 +73,15 @@ interface BudgetContextType {
   rejectAllPending: () => Promise<void>;
   /** Hide the modal without acting on remaining pending items (deferred review). */
   dismissPendingReview: () => void;
+  /**added buiometric control for extra security*/
+  biometricLockEnabled: boolean;
+  setBiometricLockEnabled: (enabled: boolean) => Promise<void>;
+  //per exportare in pdf
+  exportPdf: () => Promise<void>;
 }
 
 const BudgetContext = createContext<BudgetContextType | null>(null);
+const BIOMETRIC_LOCK_KEY = '@budget_biometric_lock';
 
 export function useBudget() {
   const ctx = useContext(BudgetContext);
@@ -100,6 +106,7 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   const [permissionStatus, setPermissionStatus] = useState<PermissionStatus>('unknown');
   const [isLoading, setIsLoading] = useState(true);
   const [currency, setCurrencyState] = useState<Currency>(DEFAULT_CURRENCY);
+  const [biometricLockEnabled, setBiometricLockEnabledState] = useState(false);
   const appStateRef = useRef(AppState.currentState);
 
   // ── Pending transaction review ─────────────────────────────────────────────
@@ -108,16 +115,18 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
 
   const loadAll = useCallback(async () => {
     try {
-      const [txJson, appsJson, budgetJson, currencyJson] = await Promise.all([
+      const [txJson, appsJson, budgetJson, currencyJson, biometricJson] = await Promise.all([
         AsyncStorage.getItem(TRANSACTIONS_KEY),
         AsyncStorage.getItem(BANKING_APPS_KEY),
         AsyncStorage.getItem(BUDGET_KEY),
         AsyncStorage.getItem(CURRENCY_KEY),
+        AsyncStorage.getItem(BIOMETRIC_LOCK_KEY),
       ]);
       if (txJson) setTransactions(JSON.parse(txJson));
       if (appsJson) setBankingApps(JSON.parse(appsJson));
       if (budgetJson) setMonthlyBudgetState(JSON.parse(budgetJson));
       if (currencyJson) setCurrencyState(getCurrencyByCode(JSON.parse(currencyJson)));
+      if (biometricJson) setBiometricLockEnabledState(JSON.parse(biometricJson));
     } catch {
       // ignore
     } finally {
@@ -263,6 +272,12 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
       stop();
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  //blocco per il check e act del lock biometrico
+  const setBiometricLockEnabled = useCallback(async (enabled: boolean) => {
+    setBiometricLockEnabledState(enabled);
+    await AsyncStorage.setItem(BIOMETRIC_LOCK_KEY, JSON.stringify(enabled));
+  }, []);
 
   // ── Currency ──────────────────────────────────────────────────────────────
 
@@ -502,8 +517,12 @@ export function BudgetProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const exportCsv = useCallback(async () => {
-    await shareCsv(transactions);
-  }, [transactions]);
+    await shareCsv(transactions, currency.code);
+  }, [transactions, currency]);
+
+  const exportPdf = useCallback(async () => {
+    await sharePdf(transactions, currency.code);
+  }, [transactions, currency]);
 
   const clearAllData = useCallback(async () => {
     setTransactions([]);
@@ -551,6 +570,8 @@ const currentMonthIncome = useMemo(
       bankingApps,
       monthlyBudget,
       permissionStatus,
+      biometricLockEnabled,
+      setBiometricLockEnabled,
       isLoading,
       currency,
       setGlobalCurrency,
@@ -564,6 +585,7 @@ const currentMonthIncome = useMemo(
       checkPermission,
       openNotificationSettings,
       exportCsv,
+      exportPdf,
       clearAllData,
       currentMonthSpent,
       currentMonthIncome,
@@ -583,6 +605,8 @@ const currentMonthIncome = useMemo(
       bankingApps,
       monthlyBudget,
       permissionStatus,
+      biometricLockEnabled,
+      setBiometricLockEnabled,
       isLoading,
       currency,
       setGlobalCurrency,
@@ -596,6 +620,7 @@ const currentMonthIncome = useMemo(
       checkPermission,
       openNotificationSettings,
       exportCsv,
+      exportPdf,
       clearAllData,
       currentMonthSpent,
       currentMonthIncome,

@@ -18,6 +18,7 @@ import { BudgetProvider } from '@/context/BudgetContext';
 import { PendingReviewModal } from '@/components/PendingReviewModal';
 import { CurrencyConversionPrompt } from '@/components/CurrencyConversionPrompt';
 import { handleNotification } from '@/utils/notificationHandler';
+import { BiometricGate } from '@/components/BiometricGate';
 
 // Register Android notification listener headless task at module-load time.
 // This runs in a fresh JS context when a notification arrives while the app
@@ -72,9 +73,11 @@ export default function RootLayout() {
           <GestureHandlerRootView>
             <KeyboardProvider>
               <BudgetProvider>
-                <RootLayoutNav />
-                <PendingReviewModal />
-                <CurrencyConversionPrompt />
+                <BiometricGate>
+                  <RootLayoutNav />
+                  <PendingReviewModal />
+                  <CurrencyConversionPrompt />
+                </BiometricGate>
               </BudgetProvider>
             </KeyboardProvider>
           </GestureHandlerRootView>

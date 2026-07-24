@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   Modal,
   Pressable,
   StyleSheet,
@@ -10,6 +11,7 @@ import {
 import Animated, { Extrapolation, interpolate, useAnimatedStyle } from 'react-native-reanimated';
 import { useReanimatedKeyboardAnimation } from 'react-native-keyboard-controller';
 import { useColors } from '@/hooks/useColors';
+import { fetchExchangeRate } from '@/utils/exchangeRate';
 
 // How far the dialog rises when the keyboard shows (~2-3cm). Tweak to taste.
 const EXCHANGE_MODAL_LIFT = 90;
@@ -43,6 +45,7 @@ export function ExchangeRateModal({
   const colors = useColors();
   const [rateInput, setRateInput] = useState('');
   const [error, setError] = useState('');
+  const [fetchingRate, setFetchingRate] = useState(false);
   const inputRef = useRef<TextInput>(null);
   const { progress } = useReanimatedKeyboardAnimation();
   const liftStyle = useAnimatedStyle(() => ({
@@ -68,6 +71,18 @@ export function ExchangeRateModal({
       return;
     }
     onConfirm(rate);
+  };
+
+  const handleUseLiveRate = async () => {
+    setError('');
+    setFetchingRate(true);
+    const rate = await fetchExchangeRate(fromCode, toCode);
+    setFetchingRate(false);
+    if (rate === null) {
+      setError("Couldn't fetch a live rate — please enter it manually.");
+      return;
+    }
+    setRateInput(String(rate));
   };
 
   return (
@@ -113,14 +128,22 @@ export function ExchangeRateModal({
                 onSubmitEditing={handleConfirm}
               />
             </View>
-            <View style={[styles.pill, { backgroundColor: colors.muted }]}>
-              <Text style={[styles.pillText, { color: colors.foreground }]}>
-                {toCode} {toSymbol}
-              </Text>
+              <View style={[styles.pill, { backgroundColor: colors.muted }]}>
+               <Text style={[styles.pillText, { color: colors.foreground }]}>
+                 {toCode} {toSymbol}
+               </Text>
+              </View>
             </View>
-          </View>
 
-          {error !== '' && (
+            <Pressable style={styles.liveRateBtn} onPress={handleUseLiveRate} disabled={fetchingRate}>
+              {fetchingRate ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <Text style={[styles.liveRateText, { color: colors.primary }]}>⟳ Use live rate</Text>
+              )}
+            </Pressable>
+
+            {error !== '' && (
             <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text>
           )}
 
@@ -204,6 +227,14 @@ const styles = StyleSheet.create({
     fontFamily: 'Inter_600SemiBold',
     textAlign: 'center',
     padding: 0,
+  },
+  liveRateBtn: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  liveRateText: {
+    fontSize: 13,
+    fontFamily: 'Inter_600SemiBold',
   },
   error: {
     fontSize: 12,

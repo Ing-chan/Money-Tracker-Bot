@@ -5,6 +5,7 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   View,
@@ -17,6 +18,7 @@ import { useBudget } from '@/context/BudgetContext';
 import { CurrencyPickerModal } from '@/components/CurrencyPickerModal';
 import { ExchangeRateModal } from '@/components/ExchangeRateModal';
 import { useGlobalCurrencyChange } from '@/hooks/useGlobalCurrencyChange';
+import * as LocalAuthentication from 'expo-local-authentication';
 
 const BANKING_PRESETS = [
   // ── Italian / European ──────────────────────────────────────────────────
@@ -67,6 +69,8 @@ export default function SettingsScreen() {
     bankingApps,
     monthlyBudget,
     permissionStatus,
+    biometricLockEnabled,
+    setBiometricLockEnabled,
     transactions,
     currency,
     setGlobalCurrency,
@@ -75,6 +79,7 @@ export default function SettingsScreen() {
     setMonthlyBudget,
     openNotificationSettings,
     exportCsv,
+    exportPdf,
     clearAllData,
   } = useBudget();
 
@@ -93,6 +98,23 @@ export default function SettingsScreen() {
     handleRateConfirm,
     handleRateCancel,
   } = useGlobalCurrencyChange();
+
+  //lock buometrico
+  const handleToggleBiometricLock = async (value: boolean) => {
+    if (value) {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!hasHardware || !isEnrolled) {
+        Alert.alert(
+          'Not Available',
+          'Set up a fingerprint or face unlock in your device settings first.'
+        );
+        return;
+      }
+    }
+    await setBiometricLockEnabled(value);
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
 
   const topPad = Platform.OS === 'web' ? 67 : insets.top;
   const bottomPad = Platform.OS === 'web' ? 34 : insets.bottom;
@@ -247,6 +269,22 @@ export default function SettingsScreen() {
           <Text style={[styles.hint, { color: colors.mutedForeground }]}>
             On Android: Settings → Apps → Special app access → Notification access → enable{' '}
             <Text style={{ fontFamily: 'Inter_500Medium' }}>Budget Tracker</Text>
+          </Text>
+        </SectionCard>
+
+        {/* ── Security ── */}
+        <SectionCard>
+          <SectionHeader icon="lock" title="Security" />
+          <View style={styles.permRow}>
+            <Text style={[styles.permLabel, { color: colors.foreground }]}>Biometric Lock</Text>
+            <Switch
+              value={biometricLockEnabled}
+              onValueChange={handleToggleBiometricLock}
+              trackColor={{ false: colors.muted, true: colors.primary }}
+            />
+          </View>
+          <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+            Require Face ID / fingerprint to open the app.
           </Text>
         </SectionCard>
 
@@ -416,6 +454,26 @@ export default function SettingsScreen() {
             </View>
             <View style={{ flex: 1 }}>
               <Text style={[styles.dataLabel, { color: colors.foreground }]}>Export as CSV</Text>
+              <Text style={[styles.dataSub, { color: colors.mutedForeground }]}>
+                {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
+              </Text>
+            </View>
+            <Feather name="chevron-right" size={16} color={colors.mutedForeground} />
+          </Pressable>
+
+          <Pressable
+            style={({ pressed }) => [
+              styles.dataRow,
+              { borderColor: colors.border, borderTopWidth: 1, opacity: pressed ? 0.7 : 1 },
+            ]}
+            onPress={exportPdf}
+            disabled={transactions.length === 0}
+          >
+            <View style={[styles.dataIcon, { backgroundColor: `${colors.primary}18` }]}>
+              <Feather name="file-text" size={16} color={colors.primary} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.dataLabel, { color: colors.foreground }]}>Export as PDF</Text>
               <Text style={[styles.dataSub, { color: colors.mutedForeground }]}>
                 {transactions.length} transaction{transactions.length !== 1 ? 's' : ''}
               </Text>
