@@ -253,23 +253,25 @@ export default function SettingsScreen() {
             <Text style={[styles.permLabel, { color: permissionColor }]}>{permissionLabel}</Text>
           </View>
           {permissionStatus !== 'authorized' && (
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionBtn,
-                { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 },
-              ]}
-              onPress={openNotificationSettings}
-            >
-              <Feather name="external-link" size={14} color={colors.primaryForeground} />
-              <Text style={[styles.actionBtnText, { color: colors.primaryForeground }]}>
-                Open Notification Access Settings
+            <>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionBtn,
+                  { backgroundColor: colors.primary, borderRadius: colors.radius, opacity: pressed ? 0.8 : 1 },
+                ]}
+                onPress={openNotificationSettings}
+              >
+                <Feather name="external-link" size={14} color={colors.primaryForeground} />
+                <Text style={[styles.actionBtnText, { color: colors.primaryForeground }]}>
+                  Open Notification Access Settings
+                </Text>
+              </Pressable>
+              <Text style={[styles.hint, { color: colors.mutedForeground }]}>
+                On Android: Settings → Apps → Special app access → Notification access → enable{' '}
+                <Text style={{ fontFamily: 'Inter_500Medium' }}>Budget Tracker</Text>
               </Text>
-            </Pressable>
+            </>
           )}
-          <Text style={[styles.hint, { color: colors.mutedForeground }]}>
-            On Android: Settings → Apps → Special app access → Notification access → enable{' '}
-            <Text style={{ fontFamily: 'Inter_500Medium' }}>Budget Tracker</Text>
-          </Text>
         </SectionCard>
 
         {/* ── Security ── */}
